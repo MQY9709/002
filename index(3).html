@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>过敏排查</title>
+<link rel="manifest" href="./manifest(3).json">
+<meta name="theme-color" content="#3a7afe">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="过敏排查">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6f8;color:#222;padding:16px 14px 40px}
+h1{font-size:19px;margin:6px 0 16px;font-weight:600}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tab{flex:1;text-align:center;padding:9px 0;border-radius:10px;background:#fff;font-size:14px;color:#666;border:1px solid #e6e8ec}
+.tab.on{background:#3a7afe;color:#fff;border-color:#3a7afe}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+label{font-size:13px;color:#888;display:block;margin-bottom:6px}
+input,textarea,select{width:100%;border:1px solid #e2e5ea;border-radius:10px;padding:11px 12px;font-size:15px;font-family:inherit;outline:none;background:#fafbfc}
+input:focus,textarea:focus,select:focus{border-color:#3a7afe;background:#fff}
+textarea{resize:vertical;min-height:60px}
+button{border:none;border-radius:10px;padding:12px;font-size:15px;font-family:inherit;font-weight:500;cursor:pointer;width:100%}
+.btn-main{background:#3a7afe;color:#fff;margin-top:10px}
+.btn-del{background:transparent;color:#e15b5b;font-size:13px;padding:6px 10px;width:auto;float:right}
+.hint{font-size:12px;color:#9aa0a8;margin-top:8px;line-height:1.5}
+.item{display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f0f2f5;gap:10px}
+.item:last-child{border-bottom:none}
+.item .nm{font-size:15px}
+.item .sym{font-size:12px;color:#999;margin-top:3px;line-height:1.5}
+.res{border-radius:14px;padding:16px;margin-bottom:14px;font-size:15px;line-height:1.6}
+.res.ok{background:#e9f7ee;border:1px solid #bfe6cd;color:#1d6b3d}
+.res.no{background:#fdecec;border:1px solid #f3c6c6;color:#a83232}
+.res.warn{background:#fff5e5;border:1px solid #f5dcae;color:#8a5d10}
+.res .big{font-size:17px;font-weight:600;margin-bottom:6px}
+.res .why{font-size:13px;margin-top:8px;opacity:.9;line-height:1.7}
+.res .kb{font-size:12px;margin-top:8px;opacity:.75;line-height:1.6;border-top:1px dashed rgba(0,0,0,.1);padding-top:7px}
+.empty{color:#aab;font-size:13px;text-align:center;padding:12px 0}
+.sec-title{font-size:13px;color:#888;margin:14px 0 6px;font-weight:600}
+.grp{margin-bottom:8px}
+.ing{font-size:12px;color:#7c8593;margin-top:3px}
+.log{font-size:12px;line-height:1.9;color:#556}
+</style>
+</head>
+<body>
+<h1>过敏排查</h1>
+
+<div class="tabs">
+  <div class="tab on" data-tab="check">查一查</div>
+  <div class="tab" data-tab="list">我的清单</div>
+  <div class="tab" data-tab="kb">食物库</div>
+  <div class="tab" data-tab="log">自检日志</div>
+</div>
+
+<div id="panel-check">
+  <div class="card">
+    <label>要吃或要接触什么？</label>
+    <input id="q" placeholder="比如：杨枝甘露、拿铁、蛋糕" autocomplete="off">
+    <button class="btn-main" id="go">查一下</button>
+    <div class="hint">支持多个用逗号隔开。只认整词，不会再串到别的食物上。</div>
+  </div>
+  <div id="result"></div>
+</div>
+
+<div id="panel-list" style="display:none">
+  <div class="card">
+    <label>名称</label>
+    <input id="in-name" placeholder="比如：豆浆">
+    <label style="margin-top:10px">类别</label>
+    <select id="in-cat">
+      <option value="allergy">过敏（会过敏）</option>
+      <option value="hate">不过敏但讨厌</option>
+      <option value="unwell">不过敏也不讨厌，但吃了不舒服</option>
+    </select>
+    <label style="margin-top:10px">成分（用逗号隔开，没有就空着）</label>
+    <input id="in-ing" placeholder="比如：黄豆,水">
+    <label style="margin-top:10px">备注</label>
+    <textarea id="in-sym" placeholder="比如：讨厌豆腐味 / 烧胃 / 嘴痒起疹"></textarea>
+    <button class="btn-main" id="add">加进清单</button>
+  </div>
+  <div class="card" id="list-box"></div>
+</div>
+
+<div id="panel-kb" style="display:none">
+  <div class="card">
+    <label>按原料找（点一个看有哪些成品含它）</label>
+    <select id="kb-pick"></select>
+    <div class="hint">这个库是按你清单里的过敏源反推的。搜不到的问我就补。</div>
+  </div>
+  <div class="card" id="kb-box"></div>
+</div>
+
+<div id="panel-log" style="display:none">
+  <div class="card">
+    <div class="sec-title" style="margin-top:0">自检用例（自动跑一遍，不需要你手点）</div>
+    <div class="log" id="log-box"></div>
+  </div>
+</div>
+
+<script>
+var KEY = 'allergy_list_v2';
+var DEFAULT = [
+  {name:'地衣芽孢杆菌活菌胶囊', cat:'allergy', ing:['地衣芽孢杆菌'], sym:'过敏'},
+  {name:'软枣猕猴桃', cat:'allergy', ing:[], sym:'过敏'},
+  {name:'芒果', cat:'allergy', ing:[], sym:'过敏'},
+  {name:'毛桃的毛', cat:'allergy', ing:['桃毛'], sym:'过敏'},
+  {name:'咖啡', cat:'allergy', ing:['咖啡因'], sym:'过敏'},
+  {name:'利多卡因胶浆', cat:'allergy', ing:['利多卡因'], sym:'过敏'},
+  {name:'达克罗宁胶浆', cat:'allergy', ing:['达克罗宁'], sym:'过敏'},
+  {name:'枇杷', cat:'allergy', ing:[], sym:'过敏'},
+  {name:'水煮蛋', cat:'unwell', ing:['鸡蛋','蛋'], sym:'吃了拉肚子'},
+  {name:'蒜', cat:'unwell', ing:['大蒜','蒜'], sym:'烧胃'},
+  {name:'韭菜', cat:'unwell', ing:['韭菜'], sym:'烧胃'},
+  {name:'豆制品', cat:'hate', ing:['黄豆','大豆'], sym:'讨厌豆腐味'},
+  {name:'豆腐', cat:'hate', ing:['黄豆','大豆'], sym:'讨厌豆腐味'},
+  {name:'豆浆', cat:'hate', ing:['黄豆','大豆'], sym:'讨厌豆腐味'},
+  {name:'粥', cat:'hate', ing:['米'], sym:'不爱喝'}
+];
+var CAT_NAME = {allergy:'过敏', hate:'不过敏但讨厌', unwell:'不过敏但吃了不舒服'};
+
+// 食物关系知识库：成品 -> 原料。原料之间只认整词全等，不做包含和两字模糊。
+var KB = {
+  '杨枝甘露':['芒果','西柚','椰奶','西米'],
+  '芒果班戟':['芒果','奶油','鸡蛋','面粉'],
+  '芒果千层':['芒果','奶油','鸡蛋','面粉'],
+  '芒果蛋糕':['芒果','鸡蛋','面粉','奶油'],
+  '芒果布丁':['芒果','牛奶'],
+  '芒果冰沙':['芒果'],
+  '芒果奶昔':['芒果','牛奶'],
+  '芒果干':['芒果'],
+  '芒果果茶':['芒果'],
+  '芒果西米露':['芒果','椰奶','西米'],
+  '芒果糯米糍':['芒果','糯米'],
+  '多芒小丸子':['芒果','牛奶'],
+  '泰式芒果糯米饭':['芒果','糯米','椰奶'],
+  '杨枝甘露蛋糕':['芒果','西柚','椰奶','鸡蛋','面粉'],
+  '水果捞':['芒果','西瓜','哈密瓜','椰奶'],
+  '椰香芒芒':['芒果','椰奶'],
+  '黄桃罐头':['黄桃','桃'],
+  '桃汁':['桃'],
+  '桃子味饮料':['桃'],
+  '水蜜桃奶昔':['桃','牛奶'],
+  '桃酥':['面粉','猪油','鸡蛋'],
+  '毛桃':['桃毛','桃'],
+  '水蜜桃':['桃毛','桃'],
+  '黄桃':['桃'],
+  '油桃':['桃'],
+  '蟠桃':['桃毛','桃'],
+  '拿铁':['咖啡','咖啡因','牛奶'],
+  '美式':['咖啡','咖啡因'],
+  '摩卡':['咖啡','咖啡因','可可','牛奶'],
+  '卡布奇诺':['咖啡','咖啡因','牛奶'],
+  '生椰拿铁':['咖啡','咖啡因','椰奶'],
+  '焦糖玛奇朵':['咖啡','咖啡因','牛奶'],
+  '咖啡冻':['咖啡','咖啡因'],
+  '提拉米苏':['咖啡','咖啡因','鸡蛋','面粉','奶油'],
+  '黑森林蛋糕':['可可','咖啡','鸡蛋','面粉','奶油'],
+  '可可':['咖啡因'],
+  '热可可':['可可','咖啡因','牛奶'],
+  '巧克力':['可可','咖啡因'],
+  '可乐':['咖啡因'],
+  '绿茶':['咖啡因'],
+  '红茶':['咖啡因'],
+  '乌龙茶':['咖啡因'],
+  '抹茶':['咖啡因'],
+  '红牛':['咖啡因'],
+  '能量饮料':['咖啡因'],
+  '咖啡味糖':['咖啡','咖啡因'],
+  '蛋糕':['鸡蛋','面粉'],
+  '面包':['鸡蛋','面粉'],
+  '吐司':['鸡蛋','面粉'],
+  '蛋挞':['鸡蛋','面粉','奶油'],
+  '蛋黄酱':['鸡蛋'],
+  '沙拉酱':['鸡蛋'],
+  '冰淇淋':['鸡蛋','牛奶'],
+  '雪糕':['鸡蛋','牛奶'],
+  '布丁':['鸡蛋','牛奶'],
+  '蛋卷':['鸡蛋','面粉'],
+  '饼干':['鸡蛋','面粉'],
+  '舒芙蕾':['鸡蛋','面粉'],
+  '戚风':['鸡蛋','面粉'],
+  '泡芙':['鸡蛋','面粉','奶油'],
+  '千层':['鸡蛋','面粉','奶油'],
+  '鸡蛋仔':['鸡蛋','面粉'],
+  '手抓饼':['面粉','鸡蛋'],
+  '汉堡':['面包','鸡蛋'],
+  '三明治':['面包','鸡蛋'],
+  '月饼':['鸡蛋','面粉'],
+  '蛋炒饭':['鸡蛋','米'],
+  '荷包蛋':['鸡蛋'],
+  '蒸蛋':['鸡蛋'],
+  '溏心蛋':['鸡蛋'],
+  '卤蛋':['鸡蛋'],
+  '咸鸭蛋':['蛋'],
+  '皮蛋':['蛋'],
+  '鹌鹑蛋':['蛋'],
+  '酱油':['黄豆','大豆'],
+  '生抽':['黄豆','大豆'],
+  '老抽':['黄豆','大豆'],
+  '豆油':['大豆'],
+  '腐竹':['黄豆'],
+  '素鸡':['黄豆'],
+  '千张':['黄豆'],
+  '油豆腐':['黄豆'],
+  '豆干':['黄豆'],
+  '豆皮':['黄豆'],
+  '豆奶粉':['黄豆'],
+  '豆奶':['黄豆'],
+  '味噌':['黄豆'],
+  '黄豆酱':['黄豆'],
+  '豆瓣酱':['黄豆'],
+  '素肉':['黄豆'],
+  '黄豆芽':['黄豆'],
+  '豆腐脑':['黄豆'],
+  '臭豆腐':['黄豆'],
+  '毛豆':['大豆'],
+  '豆腐乳':['黄豆'],
+  '蒜蓉粉丝':['蒜'],
+  '蒜蓉西兰花':['蒜'],
+  '蒜香排骨':['蒜'],
+  '蒜味香肠':['蒜'],
+  '蒜苗':['蒜'],
+  '糖蒜':['蒜'],
+  '蒜香面包':['蒜','面粉'],
+  '蒜蓉虾':['蒜'],
+  '韭菜盒子':['韭菜','面粉','鸡蛋'],
+  '韭菜炒蛋':['韭菜','鸡蛋'],
+  '韭菜饺子':['韭菜','面粉'],
+  '猕猴桃':['软枣猕猴桃'],
+  '奇异果':['软枣猕猴桃'],
+  '猕猴桃果汁':['软枣猕猴桃'],
+  '枇杷膏':['枇杷'],
+  '枇杷露':['枇杷'],
+  '枇杷糖':['枇杷'],
+  '枇杷果汁':['枇杷'],
+  '胶浆':['利多卡因','达克罗宁'],
+  '麻醉药':['利多卡因'],
+  '局部麻醉':['利多卡因','达克罗宁'],
+  '胃药':['地衣芽孢杆菌'],
+  '活菌制剂':['地衣芽孢杆菌'],
+  // 茶饮类：只拆真实原料，奶类写“牛奶/奶粉/椰奶”，不写“奶”，避免串到豆奶
+  '奶茶':['奶粉','茶','糖'],
+  '珍珠奶茶':['奶粉','茶','糖','珍珠'],
+  '黑糖珍珠奶茶':['奶粉','茶','黑糖','珍珠'],
+  '黑糖奶茶':['奶粉','茶','黑糖'],
+  '奶盖茶':['奶粉','茶','奶油'],
+  '水果茶':['茶','糖'],
+  '柠檬茶':['茶','柠檬','糖'],
+  '波霸奶茶':['奶粉','茶','糖','珍珠']
+};
+
+function load(){
+  try{ var s = localStorage.getItem(KEY); if(s) return JSON.parse(s); }catch(e){}
+  var d = [];
+  for(var i=0;i<DEFAULT.length;i++){
+    var o = {};
+    for(var k in DEFAULT[i]) o[k] = DEFAULT[i][k];
+    d.push(o);
+  }
+  return d;
+}
+function save(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'"'}[c];}); }
+
+function renderList(){
+  var list = load();
+  var box = document.getElementById('list-box');
+  if(!list.length){ box.innerHTML = '<div class="empty">清单是空的</div>'; return; }
+  var h = '', order = ['allergy','hate','unwell'];
+  for(var o=0;o<order.length;o++){
+    var cat = order[o], has = false, sub = '';
+    for(var i=0;i<list.length;i++){
+      if(list[i].cat !== cat) continue;
+      has = true;
+      var ingTxt = (list[i].ing && list[i].ing.length) ? '<div class="ing">成分：'+esc(list[i].ing.join('、'))+'</div>' : '';
+      sub += '<div class="item"><div><div class="nm">'+esc(list[i].name)+'</div><div class="sym">'+esc(list[i].sym||'')+'</div>'+ingTxt+'</div><button class="btn-del" data-i="'+i+'">删</button></div>';
+    }
+    if(has) h += '<div class="grp"><div class="sec-title">'+CAT_NAME[cat]+'</div>'+sub+'</div>';
+  }
+  box.innerHTML = h;
+  var ds = box.querySelectorAll('.btn-del');
+  for(var j=0;j<ds.length;j++){
+    ds[j].onclick = function(){
+      var k = parseInt(this.getAttribute('data-i'));
+      var l = load(); l.splice(k,1); save(l); renderList();
+    };
+  }
+}
+
+document.getElementById('add').onclick = function(){
+  var n = document.getElementById('in-name').value.trim();
+  var cat = document.getElementById('in-cat').value;
+  var ingRaw = document.getElementById('in-ing').value;
+  var ing = ingRaw.split(/[,，、\s]+/).filter(function(x){return x.length>0;});
+  var s = document.getElementById('in-sym').value.trim();
+  if(!n){ alert('名称不能空'); return; }
+  var l = load();
+  l.push({name:n, cat:cat, ing:ing, sym:s});
+  save(l);
+  document.getElementById('in-name').value = '';
+  document.getElementById('in-ing').value = '';
+  document.getElementById('in-sym').value = '';
+  renderList();
+};
+
+// 只认整词：完全相等，或一方是另一方的子串且长度>=2
+function sameWord(a,b){
+  if(!a || !b) return false;
+  if(a === b) return true;
+  if(a.length>=2 && b.indexOf(a) >= 0) return true;
+  if(b.length>=2 && a.indexOf(b) >= 0) return true;
+  return false;
+}
+
+// 在知识库里找词对应的原料（只做整词匹配，递归一层足够）
+function resolve(word){
+  var out = [], seen = {};
+  var keys = Object.keys(KB);
+  for(var i=0;i<keys.length;i++){
+    var key = keys[i];
+    if(!sameWord(key, word)) continue;
+    var parts = KB[key];
+    for(var j=0;j<parts.length;j++){
+      var p = parts[j];
+      if(seen[p]) continue;
+      seen[p] = 1;
+      out.push({name:p, via:key});
+    }
+  }
+  return out;
+}
+
+function matchWord(item){
+  var list = load(), hits = [], used = {};
+  for(var k=0;k<list.length;k++){
+    var rec = list[k], nm = rec.name || '';
+    if(!nm) continue;
+    var reason = '';
+    if(nm === item) reason = '清单里就有';
+    else if(nm.length>=2 && item.indexOf(nm) >= 0) reason = '名字里带着「'+nm+'」';
+    else if(item.length>=2 && nm.indexOf(item) >= 0) reason = '跟清单里的「'+nm+'」是同一类';
+    else {
+      var ing = rec.ing || [];
+      for(var g=0; g<ing.length; g++){
+        var one = ing[g];
+        if(one && sameWord(one, item)){ reason = '含有「'+one+'」，跟「'+nm+'」是一路的'; break; }
+      }
+    }
+    if(reason){ hits.push({rec:rec, reason:reason}); used[rec.name+reason] = 1; }
+  }
+  var parts = resolve(item);
+  for(var p=0;p<parts.length;p++){
+    var pn = parts[p].name;
+    for(var t=0;t<list.length;t++){
+      var rec2 = list[t], nm2 = rec2.name || '';
+      if(!nm2) continue;
+      var r2 = '';
+      if(sameWord(nm2, pn)) r2 = '这词里有「'+pn+'」，对得上「'+nm2+'」';
+      else {
+        var ing2 = rec2.ing || [];
+        for(var u=0;u<ing2.length;u++){
+          if(ing2[u] && sameWord(ing2[u], pn)){ r2 = '这词里有「'+pn+'」，它含「'+ing2[u]+'」，对得上「'+nm2+'」'; break; }
+        }
+      }
+      if(r2 && !used[rec2.name+r2]){ used[rec2.name+r2] = 1; hits.push({rec:rec2, reason:r2}); }
+    }
+  }
+  return hits;
+}
+
+function checkOne(item){
+  var hits = matchWord(item), kb = resolve(item);
+  var names = [], seenN = {};
+  for(var z=0;z<kb.length;z++){ if(!seenN[kb[z].name]){ seenN[kb[z].name]=1; names.push(kb[z].name); } }
+  return {item:item, hits:hits, parts:names};
+}
+
+document.getElementById('go').onclick = function(){
+  var q = document.getElementById('q').value.trim();
+  var box = document.getElementById('result');
+  if(!q){ box.innerHTML = ''; return; }
+  var words = q.split(/[,，、\s\/]+/).filter(function(x){return x.length>0;});
+  var h = '';
+  for(var p=0;p<words.length;p++){
+    var r = checkOne(words[p]), item = r.item, hits = r.hits;
+    var kbTxt = r.parts.length ? '<div class="kb">按食物库拆出的原料：'+esc(r.parts.join('、'))+'</div>' : '';
+    if(!hits.length){
+      h += '<div class="res ok"><div class="big">'+esc(item)+' 暂时没记录</div>清单和成分都没对上。新东西少量先试，吃完留意半小时。'+kbTxt+'</div>';
+      continue;
+    }
+    var level = null;
+    for(var i=0;i<hits.length;i++){
+      var c = hits[i].rec.cat;
+      if(c === 'allergy'){ level = 'allergy'; break; }
+      if(c === 'unwell') level = 'unwell';
+      else if(!level) level = c;
+    }
+    var cls = (level === 'allergy') ? 'no' : 'warn';
+    var head = '';
+    if(level === 'allergy') head = esc(item)+' 别碰，你会过敏';
+    else if(level === 'unwell') head = esc(item)+' 能吃，但吃了会不舒服';
+    else head = esc(item)+' 不过敏，但你不爱吃';
+    var why = '';
+    for(var j=0;j<hits.length;j++){
+      var x = hits[j];
+      why += '<div>· '+esc(x.rec.name)+'（'+CAT_NAME[x.rec.cat]+'）：'+esc(x.rec.sym||'')+'，'+esc(x.reason)+'</div>';
+    }
+    h += '<div class="res '+cls+'"><div class="big">'+head+'</div><div class="why">'+why+'</div>'+kbTxt+'</div>';
+  }
+  box.innerHTML = h;
+};
+
+function renderKb(){
+  var sel = document.getElementById('kb-pick'), box = document.getElementById('kb-box');
+  if(!sel.options.length){
+    var keys = Object.keys(KB); keys.sort();
+    var op = '<option value="">选一个成品看原料</option>';
+    for(var i=0;i<keys.length;i++) op += '<option value="'+esc(keys[i])+'">'+esc(keys[i])+'</option>';
+    sel.innerHTML = op;
+  }
+  var cur = sel.value;
+  if(!cur){ box.innerHTML = '<div class="empty">共 '+Object.keys(KB).length+' 条食物关系</div>'; return; }
+  var parts = KB[cur] || [], list = load();
+  var h = '<div class="sec-title">'+esc(cur)+' 的原料</div>';
+  for(var p=0;p<parts.length;p++){
+    var one = parts[p], who = [];
+    for(var i=0;i<list.length;i++){
+      var nm = list[i].name, ing = list[i].ing || [], ok = sameWord(nm, one);
+      for(var g=0;g<ing.length;g++){ if(sameWord(ing[g], one)) ok = true; }
+      if(ok) who.push(list[i].name);
+    }
+    var c = who.length ? '#a83232' : '#7c8593';
+    h += '<div class="item"><div><div class="nm">'+esc(one)+'</div><div class="sym" style="color:'+c+'">'+(who.length?('对上清单：'+esc(who.join('、'))):'清单里没有')+'</div></div></div>';
+  }
+  box.innerHTML = h;
+}
+document.getElementById('kb-pick').onchange = renderKb;
+
+// 自检：固定用例跑一遍，对不上的当场显红
+function runSelfTest(){
+  var cases = [
+    {q:'黑糖珍珠奶茶', forbid:['豆制品','豆腐','豆浆','芒果','水煮蛋','粥']},
+    {q:'奶茶', forbid:['坚果','牛奶']},
+    {q:'豆浆', must:['豆浆','豆制品','豆腐']},
+    {q:'杨枝甘露', must:['芒果'], forbid:['豆制品','豆浆']},
+    {q:'拿铁', must:['咖啡'], forbid:['豆制品','豆浆']},
+    {q:'提拉米苏', must:['咖啡','水煮蛋'], forbid:['豆制品']},
+    {q:'蛋糕', must:['水煮蛋'], forbid:['豆浆','咖啡']},
+    {q:'酱油', must:['豆制品'], forbid:['芒果','咖啡']},
+    {q:'枇杷膏', must:['枇杷'], forbid:['豆浆','芒果']},
+    {q:'蒜蓉粉丝', must:['蒜'], forbid:['豆浆','芒果']},
+    {q:'韭菜盒子', must:['韭菜','水煮蛋'], forbid:['豆浆']},
+    {q:'猕猴桃', must:['软枣猕猴桃'], forbid:['芒果']},
+    {q:'橘子', must:[], forbid:['豆制品','豆浆','芒果','咖啡']},
+    {q:'西兰花', must:[], forbid:['豆浆','蒜','芒果','咖啡']}
+  ];
+  var out = '', pass = 0;
+  for(var i=0;i<cases.length;i++){
+    var c = cases[i], r = checkOne(c.q);
+    var names = [];
+    for(var j=0;j<r.hits.length;j++) names.push(r.hits[j].rec.name);
+    var errs = [];
+    if(c.must) for(var m=0;m<c.must.length;m++) if(names.indexOf(c.must[m])<0) errs.push('漏掉'+c.must[m]);
+    if(c.forbid) for(var f=0;f<c.forbid.length;f++) if(names.indexOf(c.forbid[f])>=0) errs.push('误串'+c.forbid[f]);
+    var ok = !errs.length;
+    if(ok) pass++;
+    out += '<div style="color:'+(ok?'#1d6b3d':'#a83232')+'">'+(ok?'✔ ':'✘ ')+esc(c.q)+' → '+(names.length?esc(names.join('、')):'无命中')+(ok?'':('｜'+esc(errs.join('，'))))+'</div>';
+  }
+  out = '<div style="margin-bottom:8px">通过 '+pass+'/'+cases.length+'，规则：只认整词，不做单字和两字模糊</div>'+out;
+  document.getElementById('log-box').innerHTML = out;
+}
+
+var tabs = document.querySelectorAll('.tab');
+for(var i=0;i<tabs.length;i++){
+  tabs[i].onclick = function(){
+    var t = this.getAttribute('data-tab');
+    for(var j=0;j<tabs.length;j++) tabs[j].classList.remove('on');
+    this.classList.add('on');
+    document.getElementById('panel-check').style.display = (t==='check')?'block':'none';
+    document.getElementById('panel-list').style.display = (t==='list')?'block':'none';
+    document.getElementById('panel-kb').style.display = (t==='kb')?'block':'none';
+    document.getElementById('panel-log').style.display = (t==='log')?'block':'none';
+    if(t==='list') renderList();
+    if(t==='kb') renderKb();
+    if(t==='log') runSelfTest();
+  };
+}
+
+renderList();
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  navigator.serviceWorker.register('./sw(3).js').catch(function(e){});
+}
+</script>
+</body>
+</html>
